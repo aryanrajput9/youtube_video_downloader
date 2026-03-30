@@ -2,13 +2,31 @@ import { useState } from "react";
 
 function App() {
   const [url, setUrl] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!url) return alert("Please enter a URL");
 
-    window.open(
-      `https://youtube-video-downloader-t991.onrender.com/download?url=${url}`
-    );
+    try {
+      setLoading(true);
+
+      const res = await fetch(
+        `https://youtube-video-downloader-t991.onrender.com/download?url=${encodeURIComponent(url)}`
+      );
+
+      const data = await res.json();
+
+      if (data.downloadUrl) {
+        window.open(data.downloadUrl); // ✅ actual video open
+      } else {
+        alert("Download failed");
+      }
+
+    } catch (err) {
+      alert("Error downloading video");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -28,9 +46,10 @@ function App() {
 
         <button
           onClick={handleDownload}
+          disabled={loading}
           className="mt-6 w-full py-3 rounded-lg bg-green-500 hover:bg-green-600 text-black font-semibold transition shadow-lg shadow-green-500/30"
         >
-          Download 🚀
+          {loading ? "Downloading..." : "Download 🚀"}
         </button>
 
         <p className="text-gray-400 text-sm mt-4">
