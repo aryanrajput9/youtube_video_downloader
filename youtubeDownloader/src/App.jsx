@@ -11,7 +11,7 @@ function App() {
       setLoading(true);
 
       const res = await fetch(
-        `https://youtube-video-downloader-t991.onrender.com/download?url=${encodeURIComponent(url)}`
+        `https://youtube-video-downloader-t99l.onrender.com/download?url=${encodeURIComponent(url)}`
       );
 
       const data = await res.json();

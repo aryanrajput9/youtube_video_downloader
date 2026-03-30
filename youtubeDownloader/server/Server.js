@@ -9,6 +9,10 @@ app.get("/", (req, res) => {
     res.send("API running 🚀");
 });
 
+app.get("/check", (req, res) => {
+    res.send("WORKING NEW CODE 🔥");
+});
+
 app.get("/download", async (req, res) => {
     const { url } = req.query;
 
