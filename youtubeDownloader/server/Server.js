@@ -10,19 +10,34 @@ app.get("/check", (req, res) => res.send("WORKING 🔥"));
 
 app.get("/download", async (req, res) => {
     let { url } = req.query;
-
     if (!url) return res.status(400).json({ error: "URL required" });
 
-    // Clean URL
+    // 🔥 Clean URL - youtu.be aur youtube.com dono handle karo
     try {
         const urlObj = new URL(url);
-        const videoId = urlObj.searchParams.get("v") || urlObj.pathname.split("/").pop();
-        url = `https://www.youtube.com/watch?v=${videoId}`;
+
+        if (urlObj.hostname === "youtu.be") {
+            // youtu.be/VIDEO_ID?si=xxx format
+            const videoId = urlObj.pathname.replace("/", "");
+            url = `https://www.youtube.com/watch?v=${videoId}`;
+        } else if (urlObj.hostname.includes("youtube.com")) {
+            if (url.includes("shorts/")) {
+                // Shorts URL
+                const videoId = urlObj.pathname.split("shorts/")[1];
+                url = `https://www.youtube.com/watch?v=${videoId}`;
+            } else {
+                // Normal watch URL - sirf v param rakho
+                const videoId = urlObj.searchParams.get("v");
+                if (videoId) url = `https://www.youtube.com/watch?v=${videoId}`;
+            }
+        }
     } catch {
         return res.status(400).json({ error: "Invalid URL" });
     }
 
-    // yt-dlp se info fetch karo (JSON format mein)
+    console.log("FINAL URL:", url);
+
+    // yt-dlp se info fetch karo
     const command = `yt-dlp -j --no-playlist "${url}"`;
 
     exec(command, { timeout: 30000 }, (error, stdout, stderr) => {
