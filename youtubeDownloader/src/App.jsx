@@ -5,12 +5,14 @@ function App() {
 
   const handleDownload = () => {
     if (!url) return alert("Please enter a URL");
-    window.open(`http://localhost:3000/download?url=${url}`);
+
+    window.open(
+      `https://youtube-video-downloader-t991.onrender.com/download?url=${url}`
+    );
   };
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center px-4">
-
       <div className="bg-white/5 backdrop-blur-lg border border-white/10 p-8 rounded-2xl shadow-2xl w-full max-w-md text-center">
 
         <h1 className="text-3xl font-bold text-white mb-6 tracking-wide">
@@ -35,7 +37,6 @@ function App() {
           Paste your link and download instantly
         </p>
       </div>
-
     </div>
   );
 }
