@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const { spawn } = require("child_process");
 const path = require("path");
+const fs = require("fs");
 
 const app = express();
 app.use(cors());
@@ -16,7 +17,7 @@ app.get("/download", async (req, res) => {
     try {
         const urlObj = new URL(url);
 
-        // 🔥 Normalize URL
+        // 🔥 Normalize URL (ALL CASES)
         if (urlObj.hostname === "youtu.be") {
             const videoId = urlObj.pathname.replace("/", "");
             url = `https://www.youtube.com/watch?v=${videoId}`;
@@ -37,10 +38,14 @@ app.get("/download", async (req, res) => {
 
     console.log("FINAL URL:", url);
 
-    // 🔥 cookies file ka absolute path
+    // 🔥 cookies path
     const cookiesPath = path.join(__dirname, "cookies.txt");
 
-    // 🔥 yt-dlp args (WITH COOKIES)
+    // ✅ DEBUG: check cookies exist
+    console.log("Cookies path:", cookiesPath);
+    console.log("Cookies exist:", fs.existsSync(cookiesPath));
+
+    // 🔥 yt-dlp args
     const args = [
         "-j",
         "--no-playlist",
@@ -51,7 +56,9 @@ app.get("/download", async (req, res) => {
         url
     ];
 
-    const process = spawn("yt-dlp", args);
+    const process = spawn("yt-dlp", args, {
+        timeout: 60000 // ⏱️ 60 sec max
+    });
 
     let data = "";
     let errorData = "";
@@ -66,20 +73,22 @@ app.get("/download", async (req, res) => {
 
     process.on("close", code => {
         if (code !== 0) {
-            console.error("yt-dlp error:", errorData);
+            console.error("❌ yt-dlp error FULL:", errorData);
+
             return res.status(500).json({
                 error: "Video fetch failed",
-                message: errorData
+                message: errorData.slice(0, 300) // limit output
             });
         }
 
         try {
             const info = JSON.parse(data);
 
-            // 🔥 Best format select
+            // 🔥 BEST FORMAT LOGIC
             let format =
                 info.formats.find(f => f.ext === "mp4" && f.height === 360 && f.acodec !== "none") ||
                 info.formats.find(f => f.ext === "mp4" && f.acodec !== "none") ||
+                info.formats.find(f => f.vcodec !== "none" && f.acodec !== "none") ||
                 info.formats[info.formats.length - 1];
 
             if (!format) {
@@ -94,6 +103,8 @@ app.get("/download", async (req, res) => {
             });
 
         } catch (err) {
+            console.error("❌ Parse error:", err.message);
+
             res.status(500).json({
                 error: "Parse failed",
                 message: err.message
