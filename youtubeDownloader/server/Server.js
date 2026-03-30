@@ -1,80 +1,65 @@
 const express = require("express");
 const cors = require("cors");
-const ytdl = require("@distube/ytdl-core");
+const { exec } = require("child_process");
 
 const app = express();
 app.use(cors());
 
-// Home route
-app.get("/", (req, res) => {
-    res.send("API running 🚀");
-});
+app.get("/", (req, res) => res.send("API running 🚀"));
+app.get("/check", (req, res) => res.send("WORKING 🔥"));
 
-// Debug route
-app.get("/check", (req, res) => {
-    res.send("WORKING NEW CODE 🔥");
-});
-
-// Download route
 app.get("/download", async (req, res) => {
     let { url } = req.query;
 
-    if (!url) {
-        return res.status(400).json({ error: "URL required" });
+    if (!url) return res.status(400).json({ error: "URL required" });
+
+    // Clean URL
+    try {
+        const urlObj = new URL(url);
+        const videoId = urlObj.searchParams.get("v") || urlObj.pathname.split("/").pop();
+        url = `https://www.youtube.com/watch?v=${videoId}`;
+    } catch {
+        return res.status(400).json({ error: "Invalid URL" });
     }
 
-    try {
-        // 🔥 STEP 1: Clean URL (remove extra params)
-        url = url.split("&")[0];
-        url = url.split("?")[0];
+    // yt-dlp se info fetch karo (JSON format mein)
+    const command = `yt-dlp -j --no-playlist "${url}"`;
 
-        // 🔥 STEP 2: Fix Shorts → Watch
-        if (url.includes("shorts/")) {
-            const videoId = url.split("shorts/")[1];
-            url = `https://www.youtube.com/watch?v=${videoId}`;
-        }
-
-        console.log("FINAL URL:", url);
-
-        // 🔥 STEP 3: Validate URL
-        if (!ytdl.validateURL(url)) {
-            return res.status(400).json({ error: "Invalid YouTube URL" });
-        }
-
-        // 🔥 STEP 4: Get video info
-        const info = await ytdl.getInfo(url);
-
-        // 🔥 STEP 5: Choose best mp4 format (safe fallback)
-        let format = ytdl.chooseFormat(info.formats, {
-            quality: "18", // 360p (most stable)
-        });
-
-        // fallback if not found
-        if (!format) {
-            format = ytdl.chooseFormat(info.formats, {
-                filter: "audioandvideo",
+    exec(command, { timeout: 30000 }, (error, stdout, stderr) => {
+        if (error) {
+            console.error("yt-dlp error:", stderr);
+            return res.status(500).json({
+                error: "Video fetch failed",
+                message: stderr
             });
         }
 
-        if (!format) {
-            return res.status(404).json({ error: "No downloadable format found" });
+        try {
+            const info = JSON.parse(stdout);
+
+            // 360p mp4 format dhundo
+            const format = info.formats.find(
+                f => f.ext === "mp4" && f.height === 360 && f.acodec !== "none"
+            ) || info.formats.find(
+                f => f.ext === "mp4" && f.acodec !== "none"
+            );
+
+            if (!format) {
+                return res.status(404).json({ error: "No downloadable format found" });
+            }
+
+            res.json({
+                title: info.title,
+                thumbnail: info.thumbnail,
+                duration: info.duration,
+                downloadUrl: format.url
+            });
+
+        } catch (parseErr) {
+            res.status(500).json({ error: "Parse failed", message: parseErr.message });
         }
-
-        // ✅ RESPONSE
-        res.json({
-            title: info.videoDetails.title,
-            downloadUrl: format.url,
-        });
-
-    } catch (err) {
-        console.log("❌ ERROR FULL:", err);
-        res.status(500).json({
-            error: "Video fetch failed",
-            message: err.message
-        });
-    }
+    });
 });
 
-// Server start
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT} 🚀`));
