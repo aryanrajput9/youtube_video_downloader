@@ -1,31 +1,30 @@
 const express = require("express");
-const { exec } = require("child_process");
 const cors = require("cors");
-const path = require("path");
+const youtubedl = require("yt-dlp-exec");
 
 const app = express();
 app.use(cors());
+app.use(express.json());
 
-app.get("/download", (req, res) => {
-    const url = req.query.url;
+app.get("/download", async (req, res) => {
+    const { url } = req.query;
 
-    if (!url) return res.send("No URL provided");
+    try {
+        const data = await youtubedl(url, {
+            dumpSingleJson: true
+        });
 
-    // yt-dlp ka path (same folder me hai)
-    const ytdlpPath = path.join(__dirname, "yt-dlp.exe");
+        res.json({
+            title: data.title,
+            thumbnail: data.thumbnail,
+            url: data.webpage_url
+        });
 
-    const command = `"${ytdlpPath}" -f best -o "%(title)s.%(ext)s" ${url}`;
-
-    exec(command, (err, stdout, stderr) => {
-        if (err) {
-            console.log(err);
-            return res.send("Download failed ❌");
-        }
-
-        res.send("Download completed ✅ (check server folder)");
-    });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to fetch video" });
+    }
 });
 
-app.listen(3000, () => {
-    console.log("Server running on http://localhost:3000");
+app.listen(5000, () => {
+    console.log("Server running on port 5000");
 });
