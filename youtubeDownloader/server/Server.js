@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const { spawn } = require("child_process");
+const path = require("path");
 
 const app = express();
 app.use(cors());
@@ -36,10 +37,15 @@ app.get("/download", async (req, res) => {
 
     console.log("FINAL URL:", url);
 
-    // 🔥 yt-dlp args (SAFE)
+    // 🔥 cookies file ka absolute path
+    const cookiesPath = path.join(__dirname, "cookies.txt");
+
+    // 🔥 yt-dlp args (WITH COOKIES)
     const args = [
         "-j",
         "--no-playlist",
+        "--cookies",
+        cookiesPath,
         "--extractor-args",
         "youtube:player_client=android",
         url
