@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const { exec } = require("child_process");
+const { spawn } = require("child_process");
 
 const app = express();
 app.use(cors());
@@ -12,10 +12,10 @@ app.get("/download", async (req, res) => {
     let { url } = req.query;
     if (!url) return res.status(400).json({ error: "URL required" });
 
-    // 🔥 Clean URL
     try {
         const urlObj = new URL(url);
 
+        // 🔥 Normalize URL
         if (urlObj.hostname === "youtu.be") {
             const videoId = urlObj.pathname.replace("/", "");
             url = `https://www.youtube.com/watch?v=${videoId}`;
@@ -25,7 +25,9 @@ app.get("/download", async (req, res) => {
                 url = `https://www.youtube.com/watch?v=${videoId}`;
             } else {
                 const videoId = urlObj.searchParams.get("v");
-                if (videoId) url = `https://www.youtube.com/watch?v=${videoId}`;
+                if (videoId) {
+                    url = `https://www.youtube.com/watch?v=${videoId}`;
+                }
             }
         }
     } catch {
@@ -34,27 +36,45 @@ app.get("/download", async (req, res) => {
 
     console.log("FINAL URL:", url);
 
-    // 🔥 Android client use karo - JS runtime ki zaroorat nahi
-    const command = `yt-dlp -j --no-playlist --extractor-args "youtube:player_client=android" "${url}"`;
+    // 🔥 yt-dlp args (SAFE)
+    const args = [
+        "-j",
+        "--no-playlist",
+        "--extractor-args",
+        "youtube:player_client=android",
+        url
+    ];
 
-    exec(command, { timeout: 60000 }, (error, stdout, stderr) => {
-        if (error) {
-            console.error("yt-dlp error:", stderr);
+    const process = spawn("yt-dlp", args);
+
+    let data = "";
+    let errorData = "";
+
+    process.stdout.on("data", chunk => {
+        data += chunk.toString();
+    });
+
+    process.stderr.on("data", chunk => {
+        errorData += chunk.toString();
+    });
+
+    process.on("close", code => {
+        if (code !== 0) {
+            console.error("yt-dlp error:", errorData);
             return res.status(500).json({
                 error: "Video fetch failed",
-                message: stderr
+                message: errorData
             });
         }
 
         try {
-            const info = JSON.parse(stdout);
+            const info = JSON.parse(data);
 
-            // 360p mp4 format dhundo
-            const format = info.formats.find(
-                f => f.ext === "mp4" && f.height === 360 && f.acodec !== "none"
-            ) || info.formats.find(
-                f => f.ext === "mp4" && f.acodec !== "none"
-            ) || info.formats[info.formats.length - 1];
+            // 🔥 Best format select
+            let format =
+                info.formats.find(f => f.ext === "mp4" && f.height === 360 && f.acodec !== "none") ||
+                info.formats.find(f => f.ext === "mp4" && f.acodec !== "none") ||
+                info.formats[info.formats.length - 1];
 
             if (!format) {
                 return res.status(404).json({ error: "No downloadable format found" });
@@ -67,8 +87,11 @@ app.get("/download", async (req, res) => {
                 downloadUrl: format.url
             });
 
-        } catch (parseErr) {
-            res.status(500).json({ error: "Parse failed", message: parseErr.message });
+        } catch (err) {
+            res.status(500).json({
+                error: "Parse failed",
+                message: err.message
+            });
         }
     });
 });
