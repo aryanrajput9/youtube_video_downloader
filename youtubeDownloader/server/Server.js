@@ -51,8 +51,6 @@ app.get("/download", async (req, res) => {
         "--no-playlist",
         "--cookies",
         cookiesPath,
-        "--proxy",
-        "http://username:password@ip:port", // 🔥 yaha apna proxy
         "--extractor-args",
         "youtube:player_client=android",
         url
