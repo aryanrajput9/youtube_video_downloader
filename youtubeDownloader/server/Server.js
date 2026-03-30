@@ -12,21 +12,18 @@ app.get("/download", async (req, res) => {
     let { url } = req.query;
     if (!url) return res.status(400).json({ error: "URL required" });
 
-    // 🔥 Clean URL - youtu.be aur youtube.com dono handle karo
+    // 🔥 Clean URL
     try {
         const urlObj = new URL(url);
 
         if (urlObj.hostname === "youtu.be") {
-            // youtu.be/VIDEO_ID?si=xxx format
             const videoId = urlObj.pathname.replace("/", "");
             url = `https://www.youtube.com/watch?v=${videoId}`;
         } else if (urlObj.hostname.includes("youtube.com")) {
             if (url.includes("shorts/")) {
-                // Shorts URL
                 const videoId = urlObj.pathname.split("shorts/")[1];
                 url = `https://www.youtube.com/watch?v=${videoId}`;
             } else {
-                // Normal watch URL - sirf v param rakho
                 const videoId = urlObj.searchParams.get("v");
                 if (videoId) url = `https://www.youtube.com/watch?v=${videoId}`;
             }
@@ -37,10 +34,10 @@ app.get("/download", async (req, res) => {
 
     console.log("FINAL URL:", url);
 
-    // yt-dlp se info fetch karo
-    const command = `yt-dlp -j --no-playlist "${url}"`;
+    // 🔥 Android client use karo - JS runtime ki zaroorat nahi
+    const command = `yt-dlp -j --no-playlist --extractor-args "youtube:player_client=android" "${url}"`;
 
-    exec(command, { timeout: 30000 }, (error, stdout, stderr) => {
+    exec(command, { timeout: 60000 }, (error, stdout, stderr) => {
         if (error) {
             console.error("yt-dlp error:", stderr);
             return res.status(500).json({
@@ -57,7 +54,7 @@ app.get("/download", async (req, res) => {
                 f => f.ext === "mp4" && f.height === 360 && f.acodec !== "none"
             ) || info.formats.find(
                 f => f.ext === "mp4" && f.acodec !== "none"
-            );
+            ) || info.formats[info.formats.length - 1];
 
             if (!format) {
                 return res.status(404).json({ error: "No downloadable format found" });
